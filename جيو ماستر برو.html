@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>Geo Master Pro v15.2 | م/ جرجس قدري</title>
+
+    <script>
+        (function() {
+            const trialHours = 24;
+            const msInHour = 60 * 60 * 1000;
+
+            function checkAuth() {
+                let startTime = localStorage.getItem('geo_master_pro_auth');
+                if (!startTime) {
+                    startTime = new Date().getTime();
+                    localStorage.setItem('geo_master_pro_auth', startTime);
+                }
+                
+                const currentTime = new Date().getTime();
+                const timePassed = currentTime - startTime;
+                const timeLeftMs = (trialHours * msInHour) - timePassed;
+
+                // لو الوقت خلص
+                if (timeLeftMs <= 0) {
+                    document.documentElement.innerHTML = `
+                    <body dir="rtl" style="background:#0f172a; color:white; font-family:'Cairo', sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center;">
+                        <div style="border:2px solid #00d2ff; padding:40px; border-radius:25px; background:#1e293b; box-shadow: 0 0 30px rgba(0, 210, 255, 0.3); max-width:90%;">
+                            <h1 style="color:#00d2ff; font-size:35px; margin-bottom:10px;">🛑 انتهت الفترة التجريبية</h1>
+                            <p style="font-size:20px; opacity:0.9;">هذه النسخة كانت صالحة لمدة 24 ساعة كفترة تجريبية.</p>
+                            <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin:25px 0;">
+                            <p style="font-size:18px;">للحصول على التفعيل الدائم، يرجى التواصل مع المطور:</p>
+                            <h2 style="margin:10px 0; font-size:28px;">م/ جرجس قدري جمال</h2>
+                            <p style="color:#00d2ff; font-weight:bold;">المدير التنفيذي لمكتب عالم المساحة</p>
+                            <a href="https://wa.me/201220660113" style="background:#25D366; color:white; padding:15px 35px; border-radius:50px; text-decoration:none; font-weight:bold; display:inline-block; margin-top:20px; font-size:18px; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);">📲 تفعيل النسخة الكاملة عبر واتساب</a>
+                        </div>
+                    </body>`;
+                    return false;
+                }
+                return timeLeftMs;
+            }
+
+            // تحديث العداد الرقمي في الواجهة
+            setInterval(function() {
+                const timeLeftMs = checkAuth();
+                const timerElem = document.getElementById('timerDisplay');
+                if (timeLeftMs && timerElem) {
+                    const hours = Math.floor(timeLeftMs / (1000 * 60 * 60));
+                    const mins = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+                    timerElem.innerText = `⏳ متبقي على انتهاء التجربة: ${hours} ساعة و ${mins} دقيقة`;
+                }
+            }, 1000);
+
+            window.onload = checkAuth;
+        })();
+    </script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root { --primary: #00d2ff; --accent: #e74c3c; --bg: #0f172a; --card: #1e293b; }
+        body { font-family: 'Cairo', sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
+        #captureArea { padding: 15px; background: var(--bg); border-radius: 15px; }
+        
+        .main-header {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+            padding: 40px 20px; background: var(--card); border-bottom: 4px solid var(--primary);
+            border-radius: 15px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .main-header h1 { margin: 0; color: var(--primary); font-size: 3rem; text-transform: uppercase; letter-spacing: 4px; text-shadow: 0 0 20px rgba(0, 210, 255, 0.5); }
+        .main-header h2 { margin: 10px 0; color: #fff; font-size: 1.8rem; font-weight: 700; }
+        .main-header .divider { height: 3px; width: 100px; background: var(--accent); margin: 15px 0; }
+        .main-header p { margin: 5px 0; font-size: 1.2rem; color: #fff; font-weight: bold; }
+        .main-header .office-name { font-size: 1rem; color: #cbd5e1; max-width: 650px; line-height: 1.6; }
+        .contact-box { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .email-tag { direction: ltr; color: var(--primary); font-size: 1.1rem; background: rgba(0, 210, 255, 0.1); padding: 5px 25px; border-radius: 30px; border: 1px solid var(--primary); }
+        .phone-tag { color: #fff; font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; }
+
+        #timerDisplay { background: rgba(241, 196, 15, 0.1); color: #f1c40f; padding: 5px 15px; border-radius: 20px; border: 1px solid #f1c40f; margin-top: 15px; font-size: 0.9rem; }
+
+        .glass-panel { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+        textarea { width: 100%; height: 70px; background: #000; color: var(--primary); border: 1px solid #334155; border-radius: 10px; padding: 10px; font-family: monospace; resize: none; outline: none; }
+        
+        .btn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 10px; }
+        .btn { padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: #000; transition: 0.3s; }
+        .btn-orange { background: #f39c12; } .btn-yellow { background: #f1c40f; } .btn-blue { background: #3498db; color: #fff; } .btn-cyan { background: #00d2ff; }
+        .btn-red { background: var(--accent); color: white; }
+        
+        #map { height: 500px; width: 100%; border-radius: 12px; margin-bottom: 15px; border: 2px solid #334155; }
+        .stakeout-panel { display: none; background: var(--card); border: 2px solid var(--accent); padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); } 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); } }
+        .nav-arrow { font-size: 40px; display: inline-block; margin: 10px 0; transition: transform 0.2s ease-out; }
+
+        .tables-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media (max-width: 768px) { .tables-grid { grid-template-columns: 1fr; } }
+        .table-card { background: var(--card); padding: 12px; border-radius: 12px; border-top: 4px solid var(--primary); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8em; text-align: center; color: white; }
+        th, td { padding: 8px; border-bottom: 1px solid #334155; }
+        
+        .export-sub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
+        .btn-sub { padding: 6px; border: none; border-radius: 4px; font-size: 0.75em; font-weight: bold; cursor: pointer; color: #fff; }
+        .b-xls { background: #2ecc71; } .b-txt { background: #34495e; } .b-dxf { background: #e74c3c; }
+
+        .report-btns { display: flex; justify-content: center; gap: 10px; margin: 25px 0; flex-wrap: wrap; }
+        .btn-report { padding: 12px 20px; border-radius: 30px; border: none; font-weight: bold; cursor: pointer; color: white; }
+        .btn-wa { background: #25D366; } .btn-earth { background: #4285F4; } .btn-snap { background: #9b59b6; } .btn-print { background: #e74c3c; }
+
+        .point-label { color: #00d2ff; font-weight: bold; font-size: 13px; text-shadow: 2px 2px 4px #000; white-space: nowrap; }
+        .dist-label { background: rgba(0,0,0,0.8); color: #fff; padding: 2px 5px; border-radius: 4px; font-size: 10px; font-weight: bold; border: 1px solid var(--primary); }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+
+<div id="captureArea">
+    <div class="main-header">
+        <h1>GEO MASTER PRO</h1>
+        <h2>📊👷 جيو ماستر برو</h2>
+        <div class="divider"></div>
+        <p>تصميم المهندس جرجس قدري جمال</p>
+        <p class="office-name">المدير التنفيذي لمكتب عالم المساحة والاستشارات الهندسية والعقارية والبرامج الهندسية</p>
+        <div class="contact-box">
+            <div class="email-tag">📧 gergeskadry6@gmail.com</div>
+            <div class="phone-tag">📞 01220660113 - 01550648183</div>
+        </div>
+        <div id="timerDisplay">⏳ جاري حساب وقت التجربة...</div>
+    </div>
+
+    <div class="no-print glass-panel">
+        <textarea id="dataInput" placeholder="أدخل البيانات هنا (الاسم E N Z)"></textarea>
+        <div class="btn-grid">
+            <button class="btn btn-orange" onclick="getMyLocation()">📍 موقعي</button>
+            <button class="btn btn-yellow" onclick="toggle3D()">🎮 رؤية 3D</button>
+            <button class="btn btn-blue" onclick="processAll('geo')">🌍 معالجة (Geo)</button>
+            <button class="btn btn-cyan" onclick="processAll('utm')">🚀 معالجة (UTM)</button>
+            <button class="btn btn-red" onclick="startStakeout()">🎯 تتبع نقطة</button>
+        </div>
+    </div>
+
+    <div id="stakeoutPanel" class="stakeout-panel no-print">
+        <div id="targetInfo" style="color:var(--primary); font-weight:bold;">اختر النقطة للبدء</div>
+        <div id="guidanceArrow" class="nav-arrow">⬆️</div>
+        <div id="distInfo" style="font-size: 24px; font-weight: bold; margin: 5px 0;">0.00 m</div>
+        <button class="btn" style="background:#fff; padding:5px 15px;" onclick="stopStakeout()">إغلاق التتبع</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="tables-grid">
+        <div class="table-card">
+            <h4 style="color:var(--primary); margin:5px">📋 إحداثيات المشروع (UTM)</h4>
+            <table id="utmTable"><thead><tr><th>Point</th><th>E (X)</th><th>N (Y)</th><th>Z</th></tr></thead><tbody></tbody></table>
+            <div class="export-sub-grid no-print">
+                <button class="btn-sub b-xls" onclick="exportSpecific('utm', 'xlsx')">Excel</button>
+                <button class="btn-sub b-txt" onclick="exportSpecific('utm', 'txt')">Text</button>
+                <button class="btn-sub b-dxf" onclick="exportSpecific('utm', 'dxf')">DXF</button>
+            </div>
+        </div>
+        <div class="table-card">
+            <h4 style="color:var(--primary); margin:5px">🌍 بيانات جوجل إيرث</h4>
+            <table id="geoTable"><thead><tr><th>Point</th><th>Lat</th><th>Long</th><th>Z</th></tr></thead><tbody></tbody></table>
+            <div class="export-sub-grid no-print">
+                <button class="btn-sub b-xls" onclick="exportSpecific('geo', 'xlsx')">Excel</button>
+                <button class="btn-sub b-txt" onclick="exportSpecific('geo', 'txt')">Text</button>
+                <button class="btn-sub b-dxf" onclick="exportSpecific('geo', 'dxf')">DXF</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="report-btns no-print">
+    <button class="btn-report btn-snap" onclick="takeSnapshot()">📸 حفظ كصورة</button>
+    <button class="btn-report btn-earth" onclick="downloadKML()">🌐 KML</button>
+    <button class="btn-report btn-wa" onclick="sendFullReportWA()">📲 واتساب</button>
+    <button class="btn-report btn-print" onclick="window.print()">🖨️ PDF</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map', { attributionControl: false, preferCanvas: true }).setView([30, 31], 6);
+    L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
+    
+    let markersLayer = L.featureGroup().addTo(map);
+    let masterData = [];
+    const utm35 = "+proj=utm +zone=35 +datum=WGS84 +units=m +no_defs";
+    const wgs84 = "EPSG:4326";
+
+    function toDMS(deg) {
+        const d = Math.floor(Math.abs(deg)), m = Math.floor((Math.abs(deg) - d) * 60);
+        const s = ((Math.abs(deg) - d - m / 60) * 3600).toFixed(2);
+        return `${d}°${m}'${s}"`;
+    }
+
+    function processAll(system) {
+        const input = document.getElementById('dataInput').value.trim();
+        if(!input) return;
+        markersLayer.clearLayers(); masterData = [];
+        document.querySelector('#utmTable tbody').innerHTML = '';
+        document.querySelector('#geoTable tbody').innerHTML = '';
+        const lines = input.split('\n');
+        let latLngs = [];
+
+        lines.forEach((line) => {
+            const cols = line.split(/\t|\s+/);
+            if(cols.length >= 3) {
+                const name = cols[0], v1 = parseFloat(cols[1]), v2 = parseFloat(cols[2]), z = parseFloat(cols[3] || 0);
+                let lat, lng, e, n;
+                if(system === 'utm') {
+                    const geo = proj4(utm35, wgs84, [v1, v2]);
+                    lng = geo[0]; lat = geo[1]; e = v1; n = v2;
+                } else {
+                    lat = v2; lng = v1;
+                    const utm = proj4(wgs84, utm35, [lng, lat]);
+                    e = utm[0]; n = utm[1];
+                }
+                masterData.push({name, e, n, z, lat, lng});
+                latLngs.push([lat, lng]);
+
+                L.circleMarker([lat, lng], {radius: 6, color: '#00d2ff', fillOpacity:1}).addTo(markersLayer);
+                L.marker([lat, lng], {icon: L.divIcon({className: 'point-label', html: name, iconAnchor: [-10, 5]})}).addTo(markersLayer);
+
+                document.querySelector('#utmTable tbody').innerHTML += `<tr><td>${name}</td><td>${e.toFixed(3)}</td><td>${n.toFixed(3)}</td><td>${z}</td></tr>`;
+                document.querySelector('#geoTable tbody').innerHTML += `<tr><td>${name}</td><td>${toDMS(lat)}</td><td>${toDMS(lng)}</td><td>${z}</td></tr>`;
+            }
+        });
+
+        if(latLngs.length > 1) {
+            let path = [...latLngs, latLngs[0]]; 
+            L.polyline(path, {color: '#800020', weight: 4}).addTo(markersLayer);
+            for(let i=0; i < path.length - 1; i++) {
+                const p1 = masterData[i] || masterData[0], p2 = masterData[i+1] || masterData[0];
+                const d = Math.sqrt(Math.pow(p2.e-p1.e, 2) + Math.pow(p2.n-p1.n, 2)).toFixed(2);
+                L.marker([(p1.lat+p2.lat)/2, (p1.lng+p2.lng)/2], {icon: L.divIcon({className: 'dist-label', html: d + 'm', iconSize: [40, 20]})}).addTo(markersLayer);
+            }
+            setTimeout(() => { map.fitBounds(markersLayer.getBounds(), {padding: [50, 50]}); }, 200);
+        }
+    }
+
+    let watchId = null;
+    let targetPoint = null;
+    let myMarker = L.marker([0,0], {icon: L.divIcon({html: '🔴', className: ''})});
+
+    function startStakeout() {
+        if (masterData.length === 0) return alert("دخل النقاط الأول يا هندسة!");
+        const ptName = prompt("دخل اسم النقطة اللي عاوز تروح لها:");
+        targetPoint = masterData.find(p => p.name == ptName);
+        if (!targetPoint) return alert("النقطة مش موجودة!");
+        document.getElementById('stakeoutPanel').style.display = 'block';
+        if (navigator.geolocation) watchId = navigator.geolocation.watchPosition(updateStakeout, null, {enableHighAccuracy: true});
+    }
+
+    function updateStakeout(pos) {
+        const myLat = pos.coords.latitude, myLng = pos.coords.longitude;
+        const myHeading = pos.coords.heading || 0;
+        const dist = map.distance([myLat, myLng], [targetPoint.lat, targetPoint.lng]);
+        const Δλ = (targetPoint.lng - myLng) * Math.PI / 180;
+        const φ1 = myLat * Math.PI / 180, φ2 = targetPoint.lat * Math.PI / 180;
+        const bearing = Math.atan2(Math.sin(Δλ) * Math.cos(φ2), Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)) * 180 / Math.PI;
+        document.getElementById('guidanceArrow').style.transform = `rotate(${bearing - myHeading}deg)`;
+        document.getElementById('distInfo').innerText = dist.toFixed(2) + " m";
+        document.getElementById('targetInfo').innerText = `الهدف: ${targetPoint.name}`;
+        myMarker.setLatLng([myLat, myLng]).addTo(map);
+        document.getElementById('stakeoutPanel').style.background = (dist < 1) ? "#27ae60" : "#1e293b";
+    }
+
+    function stopStakeout() { if(watchId) navigator.geolocation.clearWatch(watchId); document.getElementById('stakeoutPanel').style.display = 'none'; map.removeLayer(myMarker); }
+
+    function exportSpecific(type, format) {
+        if(masterData.length === 0) return;
+        let data = masterData.map(p => (type === 'utm') ? {"Point": p.name, "E": p.e.toFixed(3), "N": p.n.toFixed(3), "Z": p.z} : {"Point": p.name, "Lat": toDMS(p.lat), "Long": toDMS(p.lng), "Z": p.z});
+        if(format === 'xlsx') {
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Data");
+            XLSX.writeFile(wb, `GeoMaster_${type}.xlsx`);
+        } else if(format === 'dxf') {
+            let dxf = "0\nSECTION\n2\nENTITIES\n";
+            masterData.forEach(p => {
+                let x = (type === 'utm') ? p.e : p.lng, y = (type === 'utm') ? p.n : p.lat;
+                dxf += `0\nPOINT\n8\nPOINTS\n10\n${x}\n20\n${y}\n30\n${p.z}\n0\nTEXT\n8\nTEXT\n10\n${x+0.5}\n20\n${y+0.5}\n30\n${p.z}\n40\n0.3\n1\n${p.name}\n`;
+            });
+            dxf += "0\nENDSEC\n0\nEOF";
+            downloadFile(dxf, `Survey_${type}.dxf`, 'application/dxf');
+        } else {
+            downloadFile(data.map(r => Object.values(r).join("\t")).join("\n"), `GeoMaster_${type}.txt`, 'text/plain');
+        }
+    }
+
+    function downloadKML() {
+        if(masterData.length === 0) return;
+        let kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Project</name>`;
+        masterData.forEach(p => kml += `<Placemark><name>${p.name}</name><Point><coordinates>${p.lng},${p.lat},${p.z}</coordinates></Point></Placemark>`);
+        kml += `<Placemark><name>Path</name><LineString><coordinates>`;
+        masterData.forEach(p => kml += `${p.lng},${p.lat},${p.z} `);
+        kml += `${masterData[0].lng},${masterData[0].lat},${masterData[0].z}</coordinates></LineString></Placemark></Document></kml>`;
+        downloadFile(kml, "GeoMaster_Project.kml", 'application/vnd.google-earth.kml+xml');
+    }
+
+    function takeSnapshot() {
+        html2canvas(document.getElementById('captureArea'), { useCORS: true, scale: 2 }).then(canvas => {
+            const a = document.createElement('a'); a.download = 'GeoMaster_Report.png'; a.href = canvas.toDataURL(); a.click();
+        });
+    }
+
+    function downloadFile(c, n, m) { const b = new Blob([c], {type: m}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = n; a.click(); }
+
+    function sendFullReportWA() {
+        let msg = `👷 *م/ جرجس قدري*\n🚀 *Geo Master Pro*\n----------------\n`;
+        masterData.forEach(p => msg += `• ${p.name}: E:${p.e.toFixed(2)} N:${p.n.toFixed(2)}\n`);
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+    }
+
+    function toggle3D() { const m = document.getElementById('map'); m.style.transform = m.style.transform ? '' : 'perspective(1200px) rotateX(25deg)'; }
+    function getMyLocation() { navigator.geolocation.getCurrentPosition(pos => map.setView([pos.coords.latitude, pos.coords.longitude], 18)); }
+</script>
+</body>
+</html>
